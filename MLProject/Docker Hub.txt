@@ -1,0 +1,1 @@
+oscarmsinaga/predictive-maintenance-model:latest

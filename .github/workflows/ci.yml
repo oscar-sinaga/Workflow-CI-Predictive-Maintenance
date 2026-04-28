@@ -33,7 +33,7 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
         run: |
           cd MLProject
-          mlflow run . --no-conda -env-manager local
+          mlflow run . --env-manager local
 
       - name: Get latest MLflow run_id
         id: get_run_id
@@ -47,7 +47,6 @@ jobs:
           echo "Berhasil mendapatkan Run ID: $RUN_ID"
 
       - name: Install Python dependencies
-        # Di rubrik ada step ini setelah Get Run ID. Kita isi dengan memastikan dependensi packaging up-to-date
         run: pip install --upgrade setuptools wheel
 
       - name: Upload to GitHub

@@ -51,7 +51,8 @@ if __name__ == "__main__":
     best_model = grid_search.best_estimator_
 
     # 4. MANUAL LOGGING MLFLOW (TANPA AUTOLOG)
-    with mlflow.start_run():
+    # Menggunakan nested=True agar kompatibel saat dijalankan via 'mlflow run'
+    with mlflow.start_run(nested=True):
         print("Logging metrik dan artefak ke DagsHub...")
 
         # Set Tag

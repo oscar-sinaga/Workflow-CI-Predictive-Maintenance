@@ -31,6 +31,8 @@ jobs:
         env:
           MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          # TAMBAHKAN BARIS DI BAWAH INI:
+          MLFLOW_TRACKING_URI: https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow
         run: |
           cd MLProject
           mlflow run . --env-manager local

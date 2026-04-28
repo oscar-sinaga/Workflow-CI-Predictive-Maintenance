@@ -57,22 +57,30 @@ jobs:
           path: MLProject/artifacts/
           retention-days: 7
 
-      - name: Build Docker Model
+      - name: Build Docker Model (with mlflow models build-docker)
+        env:
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+          MLFLOW_TRACKING_URI: https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow
         run: |
-          cd MLProject
-          docker build -t oscarmsinaga/predictive-maintenance-model:latest .
-
+          # Perintah ini akan mengambil model langsung dari DagsHub menggunakan RUN_ID
+          # Pastikan nama 'random_forest_model' sesuai dengan yang Anda tulis di modelling.py
+          mlflow models build-docker \
+            -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
+            -n "oscarmsinaga/predictive-maintenance-model" \
+            --install-java
+            
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag Docker Image
+      - name: Tag & Push Docker Image
         run: |
+          # Kita beri tag SHA agar tetap ada history versinya
           docker tag oscarmsinaga/predictive-maintenance-model:latest oscarmsinaga/predictive-maintenance-model:${{ github.sha }}
-
-      - name: Push Docker Image
-        run: |
+          
+          # Push keduanya ke Docker Hub
           docker push oscarmsinaga/predictive-maintenance-model:latest
           docker push oscarmsinaga/predictive-maintenance-model:${{ github.sha }}

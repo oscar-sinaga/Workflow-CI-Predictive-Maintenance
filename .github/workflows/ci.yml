@@ -63,12 +63,12 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
           MLFLOW_TRACKING_URI: https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow
         run: |
-          # Perintah ini akan mengambil model langsung dari DagsHub menggunakan RUN_ID
-          # Pastikan nama 'random_forest_model' sesuai dengan yang Anda tulis di modelling.py
+          cd MLProject 
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
             -n "oscarmsinaga/predictive-maintenance-model" \
-            --install-java
+            --env-manager conda
+            
             
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

@@ -2,6 +2,7 @@ name: maintenance_env
 channels:
   - conda-forge
   - nodefaults
+  - defaults
 dependencies:
   - python=3.12.7
   - pip

@@ -65,7 +65,8 @@ jobs:
         run: |
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
-            -n "oscarmsinaga/predictive-maintenance-model"
+            -n "oscarmsinaga/predictive-maintenance-model" \
+            --install-java
             
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

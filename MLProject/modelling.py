@@ -5,7 +5,7 @@ import os
 import mlflow
 import mlflow.sklearn
 from dotenv import load_dotenv
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
                              f1_score, roc_auc_score, confusion_matrix, 
@@ -27,11 +27,12 @@ mlflow.set_experiment("Advance_Predictive_Maintenance")
 if __name__ == "__main__":
 
     # 2. DATA LOADING & SPLITTING
-    df = pd.read_csv(os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "predictive_maintenance_processed.csv"))
-    X = df.drop('Target', axis=1)
-    y = df['Target']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+    df_train = pd.read_csv(os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "predictive_maintenance_train_processed.csv"))
+    df_test = pd.read_csv(os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "predictive_maintenance_test_processed.csv"))
+    X_train = df_train.drop('Target', axis=1)
+    y_train = df_train['Target']
+    X_test = df_test.drop('Target', axis=1)
+    y_test = df_test['Target']
 
     # 3. HYPERPARAMETER TUNING (Optimasi F1-Score)
     print("Memulai Hyperparameter Tuning untuk F1-Score...")
@@ -94,7 +95,7 @@ if __name__ == "__main__":
         
         # Artefak 2: Feature Importance
         plt.figure(figsize=(8,6))
-        feature_importance = pd.Series(best_model.feature_importances_, index=X.columns).sort_values(ascending=False).head(10) 
+        feature_importance = pd.Series(best_model.feature_importances_, index=X_train.columns).sort_values(ascending=False).head(10) 
         sns.barplot(x=feature_importance, y=feature_importance.index, hue=feature_importance.index, palette='viridis', legend=False)
         plt.title('Top 10 Feature Importance')
         fi_path = "artifacts/feature_importance.png"
@@ -156,7 +157,7 @@ if __name__ == "__main__":
             shap_values_target = shap_values[:, :, 1]
         
         plt.figure() 
-        shap.summary_plot(shap_values_target, X_test, feature_names=X.columns, show=False)
+        shap.summary_plot(shap_values_target, X_test, feature_names=X_test.columns, show=False)
         
         shap_path = "artifacts/shap_summary_plot.png"
         plt.savefig(shap_path, bbox_inches='tight') 

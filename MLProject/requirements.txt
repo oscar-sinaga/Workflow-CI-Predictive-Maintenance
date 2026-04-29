@@ -8,3 +8,4 @@ pandas==2.3.3
 scikit-learn==1.8.0
 matplotlib==3.10.8
 shap==0.51.0
+unzip==1.0.0

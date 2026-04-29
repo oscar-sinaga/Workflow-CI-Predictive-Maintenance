@@ -175,8 +175,8 @@ if __name__ == "__main__":
         mlflow.sklearn.log_model(
             sk_model=best_model, 
             artifact_path="random_forest_model",
-            signature=signature,           # Menambahkan Skema
-            input_example=input_example,    # Menambahkan Contoh Data
+            signature=signature,           
+            input_example=input_example,    
             conda_env="conda.yaml"
         )
         

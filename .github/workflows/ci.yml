@@ -63,12 +63,10 @@ jobs:
           MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
           MLFLOW_TRACKING_URI: https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow
         run: |
-          cd MLProject
-          # Tambahkan --env-manager conda untuk menghindari bug Python 3.9
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
             -n "oscarmsinaga/predictive-maintenance-model" \
-            --env-manager conda
+            --install-java
             
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

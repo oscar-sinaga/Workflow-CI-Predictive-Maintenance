@@ -173,10 +173,10 @@ if __name__ == "__main__":
         
         # Simpan Model Utama dengan Signature
         mlflow.sklearn.log_model(
-            sk_model=best_model,
+            sk_model=best_model, 
             artifact_path="random_forest_model",
-            signature=signature,
-            conda_env="conda.yaml" # <--- TAMBAHKAN BARIS INI
+            signature=signature,           # Menambahkan Skema
+            input_example=input_example    # Menambahkan Contoh Data
         )
         
         print("✅ Eksperimen sukses! Kurva ROC dan Report Text berhasil dikirim ke DagsHub.")

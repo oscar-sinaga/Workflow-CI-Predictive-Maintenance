@@ -67,7 +67,7 @@ jobs:
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
             -n "oscarmsinaga/predictive-maintenance-model" \
-            --env-manager conda
+            --env-manager uv
             
             
       - name: Log in to Docker Hub

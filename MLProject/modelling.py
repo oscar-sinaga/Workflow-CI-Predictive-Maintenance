@@ -40,6 +40,9 @@ class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
         scaled_input = self.scaler.transform(df_input)
         
         # C. Prediksi menggunakan Random Forest
+        # Cek nilai setelah scaling (apakah sudah jadi angka kecil?)
+        print(f"DEBUG: Nilai RPM setelah preprocessing: {scaled_input[0, 0]}")
+        
         return self.model.predict(scaled_input)
 
 # ==========================================

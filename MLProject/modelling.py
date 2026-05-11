@@ -1,9 +1,12 @@
 import pandas as pd
+import numpy as np         # IMPORT BARU UNTUK LOG TRANSFORM
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
+import joblib              # IMPORT BARU UNTUK SAVE/LOAD MODEL
 import mlflow
 import mlflow.sklearn
+import mlflow.pyfunc       # IMPORT BARU UNTUK CUSTOM MODEL
 from dotenv import load_dotenv
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
@@ -14,8 +17,34 @@ from sklearn.metrics import precision_recall_curve, log_loss
 from mlflow.models.signature import infer_signature 
 import shap 
 
-# 1. KONFIGURASI DAGSHUB (MLFLOW ONLINE)
+# ==========================================
+# 0. DEFINISI CUSTOM PYFUNC MODEL (RESEPSIONIS PINTAR)
+# ==========================================
+class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        """Me-load model dan scaler saat Docker API dinyalakan"""
+        self.scaler = joblib.load(context.artifacts["scaler"])
+        self.model = joblib.load(context.artifacts["model"])
 
+    def predict(self, context, model_input):
+        """Fungsi ini berjalan setiap kali API menerima request"""
+        df_input = model_input.copy()
+
+        # A. REPLIKASI LANGKAH 5 PREPROCESSING: Transformasi Logaritmik
+        skewed_cols = ['Rotational speed [rpm]', 'Tool wear [min]', 'Power', 'Strain']
+        for col in skewed_cols:
+            if col in df_input.columns:
+                df_input[col] = np.log1p(df_input[col])
+
+        # B. REPLIKASI LANGKAH 7 PREPROCESSING: Scaling dengan RobustScaler
+        scaled_input = self.scaler.transform(df_input)
+        
+        # C. Prediksi menggunakan Random Forest
+        return self.model.predict(scaled_input)
+
+# ==========================================
+# 1. KONFIGURASI DAGSHUB (MLFLOW ONLINE)
+# ==========================================
 # Tentukan path secara dinamis
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv()
@@ -29,6 +58,7 @@ if __name__ == "__main__":
     # 2. DATA LOADING & SPLITTING
     df_train = pd.read_csv(os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "predictive_maintenance_train_processed.csv"))
     df_test = pd.read_csv(os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "predictive_maintenance_test_processed.csv"))
+    
     X_train = df_train.drop('Target', axis=1)
     y_train = df_train['Target']
     X_test = df_test.drop('Target', axis=1)
@@ -37,9 +67,7 @@ if __name__ == "__main__":
     # 3. HYPERPARAMETER TUNING (Optimasi F1-Score)
     print("Memulai Hyperparameter Tuning untuk F1-Score...")
 
-    # class_weight='balanced' dipertahankan untuk imbalanced data
     rf = RandomForestClassifier(random_state=42, class_weight='balanced')
-    
     param_grid = {
         'n_estimators': [100, 200],
         'max_depth': [10, 15, None],
@@ -51,19 +79,15 @@ if __name__ == "__main__":
     
     best_model = grid_search.best_estimator_
 
-    # 4. MANUAL LOGGING MLFLOW (TANPA AUTOLOG)
-    # Menggunakan nested=True agar kompatibel saat dijalankan via 'mlflow run'
+    # 4. MANUAL LOGGING MLFLOW
     with mlflow.start_run(nested=True):
         print("Logging metrik dan artefak ke DagsHub...")
 
-        # Set Tag
         mlflow.set_tag("developer", "oscar-sinaga")
-        mlflow.set_tag("model_type", "RandomForest_Tuned")
+        mlflow.set_tag("model_type", "Custom_PyFunc_RandomForest")
         
-        # A. Log Parameter (Manual)
         mlflow.log_params(grid_search.best_params_)
         
-        # B. Prediksi dan Evaluasi Metrik
         y_pred = best_model.predict(X_test)
         y_pred_proba = best_model.predict_proba(X_test)[:, 1]
         
@@ -78,10 +102,10 @@ if __name__ == "__main__":
         mlflow.log_metrics(metrics)
         print("Metrik berhasil dicatat!")
         
-        # 5. PEMBUATAN ARTEFAK VISUAL & TEKS (4 ARTEFAK)
+        # 5. PEMBUATAN ARTEFAK VISUAL & TEKS
         os.makedirs("artifacts", exist_ok=True)
         
-        # Artefak 1: Confusion Matrix
+        # (Artefak 1-5 tidak berubah, tetap sama persis)
         plt.figure(figsize=(6,5))
         cm = confusion_matrix(y_test, y_pred)
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
@@ -93,7 +117,6 @@ if __name__ == "__main__":
         mlflow.log_artifact(cm_path)
         plt.close()
         
-        # Artefak 2: Feature Importance
         plt.figure(figsize=(8,6))
         feature_importance = pd.Series(best_model.feature_importances_, index=X_train.columns).sort_values(ascending=False).head(10) 
         sns.barplot(x=feature_importance, y=feature_importance.index, hue=feature_importance.index, palette='viridis', legend=False)
@@ -104,7 +127,6 @@ if __name__ == "__main__":
         mlflow.log_artifact(fi_path)
         plt.close()
 
-        # Artefak 3: Kurva ROC (Permintaan Baru)
         plt.figure(figsize=(6,6))
         fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
         roc_auc_val = auc(fpr, tpr)
@@ -121,7 +143,6 @@ if __name__ == "__main__":
         mlflow.log_artifact(roc_path)
         plt.close()
 
-        # Artefak 4: Classification Report (Teks)
         report = classification_report(y_test, y_pred)
         report_path = "artifacts/classification_report.txt"
         with open(report_path, "w") as f:
@@ -130,7 +151,6 @@ if __name__ == "__main__":
             f.write(report)
         mlflow.log_artifact(report_path)
 
-        # Artefak 5: Precision-Recall Curve
         plt.figure(figsize=(6,6))
         precision_vals, recall_vals, _ = precision_recall_curve(y_test, y_pred_proba)
         plt.plot(recall_vals, precision_vals, color='purple', lw=2)
@@ -142,42 +162,54 @@ if __name__ == "__main__":
         mlflow.log_artifact(pr_path)
         plt.close()
 
-        # Artefak 5: SHAP
-        print("Menghitung SHAP Values (Proses ini mungkin memakan waktu beberapa menit)...")
-        
+        print("Menghitung SHAP Values...")
         explainer = shap.TreeExplainer(best_model)
         shap_values = explainer.shap_values(X_test)
-        
-        # Penanganan khusus untuk kompabilitas berbagai versi library SHAP
         if isinstance(shap_values, list):
-            # Untuk SHAP versi lama
             shap_values_target = shap_values[1]
         else:
-            # Untuk SHAP versi terbaru (Array 3D)
             shap_values_target = shap_values[:, :, 1]
         
         plt.figure() 
         shap.summary_plot(shap_values_target, X_test, feature_names=X_test.columns, show=False)
-        
         shap_path = "artifacts/shap_summary_plot.png"
         plt.savefig(shap_path, bbox_inches='tight') 
         mlflow.log_artifact(shap_path)
         plt.close()
 
-        # Model Signature & Input Example
-        # Infer signature secara otomatis menebak skema (kolom dan tipe data) dari X_train dan y_train
-        signature = infer_signature(X_train, y_train)
+        # ==========================================
+        # 6. LOGGING CUSTOM PYFUNC MODEL KE MLFLOW
+        # ==========================================
+        print("Menyiapkan Custom PyFunc Model...")
+
+        # A. Simpan model Random Forest sementara ke disk untuk dijadikan artefak
+        temp_model_path = "artifacts/temp_rf_model.pkl"
+        joblib.dump(best_model, temp_model_path)
         
-        # Ambil 1 baris contoh dari data test untuk disimpan bersama model
-        input_example = X_test.iloc[[0]] 
+        # B. Tentukan lokasi Scaler yang sudah disave saat preprocessing
+        scaler_path = os.path.join(BASE_DIR, "predictive_maintenance_preprocessing", "scaler.pkl")
         
-        # Simpan Model Utama dengan Signature
-        mlflow.sklearn.log_model(
-            sk_model=best_model, 
+        # C. Bungkus Scaler dan Model menjadi satu kamus (dictionary)
+        artifacts = {
+            "scaler": scaler_path,
+            "model": temp_model_path
+        }
+
+        # D. Buat DataFrame dummy berisi data mentah untuk mendidik Signature MLflow
+        # Agar MLflow tahu bahwa API ini menerima data mentah, bukan data desimal
+        raw_cols = ["Type", "Rotational speed [rpm]", "Torque [Nm]", "Tool wear [min]", "Temp_Difference", "Power", "Strain"]
+        X_raw_example = pd.DataFrame([[1.0, 1500.0, 45.0, 10.0, 10.5, 67500.0, 450.0]], columns=raw_cols)
+        
+        # Infer signature menggunakan data input mentah dan output prediksi dari model
+        signature = infer_signature(X_raw_example, best_model.predict(X_test.head(1)))
+        
+        # E. Simpan Model menggunakan mlflow.pyfunc
+        mlflow.pyfunc.log_model(
             artifact_path="random_forest_model",
+            python_model=SmartPredictiveMaintenance(),
+            artifacts=artifacts,
             signature=signature,           
-            input_example=input_example,    
-            conda_env="conda.yaml"
+            input_example=X_raw_example,    
         )
         
-        print("✅ Eksperimen sukses! Kurva ROC dan Report Text berhasil dikirim ke DagsHub.")
+        print("✅ Eksperimen sukses! Custom Model (Scaler + LogTransform + RF) berhasil dikirim ke DagsHub.")

@@ -1,12 +1,12 @@
 import pandas as pd
-import numpy as np         # IMPORT BARU UNTUK LOG TRANSFORM
+import numpy as np         
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-import joblib              # IMPORT BARU UNTUK SAVE/LOAD MODEL
+import joblib              
 import mlflow
 import mlflow.sklearn
-import mlflow.pyfunc       # IMPORT BARU UNTUK CUSTOM MODEL
+import mlflow.pyfunc       
 from dotenv import load_dotenv
 from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
@@ -19,9 +19,7 @@ import shap
 from mlflow.models.signature import ModelSignature
 from mlflow.types.schema import Schema, ColSpec
 
-# ==========================================
-# 0. DEFINISI CUSTOM PYFUNC MODEL (RESEPSIONIS PINTAR)
-# ==========================================
+
 class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         """Me-load model dan scaler saat Docker API dinyalakan"""
@@ -52,7 +50,6 @@ class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
         # 3. ENCODING KATEGORIKAL
         type_mapping = {'L': 0, 'M': 1, 'H': 2}
         if 'Type' in df_input.columns:
-            # Gunakan map, dan handle jika input terlanjur float/int
             df_input['Type'] = df_input['Type'].replace(type_mapping)
 
         # 4. TRANSFORMASI LOGARITMIK
@@ -63,20 +60,16 @@ class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
 
         # 5. SUSUN URUTAN KOLOM (Sangat penting agar Scaler tidak salah posisi)
         expected_cols = ['Type', 'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]', 'Temp_Difference', 'Power', 'Strain']
-        # Pastikan DataFrame hanya memiliki kolom ini dengan urutan yang benar
         df_input = df_input[expected_cols]
 
         # 6. SCALING
         scaled_input = self.scaler.transform(df_input)
-        # print(f"DEBUG: Data siap masuk model (setelah preprocessing & scaling): \n{scaled_input}")
         
         # 7. PREDIKSI
         return self.model.predict(scaled_input)
 
-# ==========================================
 # 1. KONFIGURASI DAGSHUB (MLFLOW ONLINE)
-# ==========================================
-# Tentukan path secara dinamis
+# Path Dinamis
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv()
 
@@ -136,7 +129,6 @@ if __name__ == "__main__":
         # 5. PEMBUATAN ARTEFAK VISUAL & TEKS
         os.makedirs("artifacts", exist_ok=True)
         
-        # (Artefak 1-5 tidak berubah, tetap sama persis)
         plt.figure(figsize=(6,5))
         cm = confusion_matrix(y_test, y_pred)
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
@@ -208,9 +200,7 @@ if __name__ == "__main__":
         mlflow.log_artifact(shap_path)
         plt.close()
 
-        # ==========================================
         # 6. LOGGING CUSTOM PYFUNC MODEL KE MLFLOW
-        # ==========================================
         print("Menyiapkan Custom PyFunc Model...")
 
         # A. Simpan model Random Forest sementara ke disk untuk dijadikan artefak
@@ -226,13 +216,9 @@ if __name__ == "__main__":
             "model": temp_model_path
         }
 
-        # D. Buat DataFrame dummy berisi data mentah untuk mendidik Signature MLflow
-        # ==========================================
         # D. DEFINISIKAN SKEMA SECARA EKSPLISIT (EXPLICIT SIGNATURE)
-        # ==========================================
-        # Kita paksa MLflow agar tahu persis tipe data apa yang boleh masuk
         input_schema = Schema([
-            ColSpec("string", "Type"),  # <--- SECARA EKSPLISIT KITA MINTA TEKS / HURUF
+            ColSpec("string", "Type"), 
             ColSpec("double", "Air temperature [K]"),
             ColSpec("double", "Process temperature [K]"),
             ColSpec("double", "Rotational speed [rpm]"),
@@ -254,7 +240,7 @@ if __name__ == "__main__":
             artifact_path="random_forest_model",
             python_model=SmartPredictiveMaintenance(),
             artifacts=artifacts,
-            signature=explicit_signature,  # <--- MASUKKAN ATURAN MUTLAK KE SINI          
+            signature=explicit_signature,         
             input_example=X_raw_example,    
         )
         

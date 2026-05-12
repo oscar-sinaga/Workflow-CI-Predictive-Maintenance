@@ -68,15 +68,23 @@ class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
         # 7. PREDIKSI
         return self.model.predict(scaled_input)
 
-# 1. KONFIGURASI DAGSHUB (MLFLOW ONLINE)
+# 1. KONFIGURASI TRACKING URI (LOKAL VS DAGSHUB)
 # Path Dinamis
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv()
 
-dagshub_uri = "https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow"
-mlflow.set_tracking_uri(dagshub_uri)
-mlflow.set_experiment("Advance_Predictive_Maintenance")
 
+USE_DAGSHUB = True 
+
+if USE_DAGSHUB:
+    print("🚀 Menggunakan MLflow Online (DagsHub)")
+    dagshub_uri = "https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow"
+    mlflow.set_tracking_uri(dagshub_uri)
+    mlflow.set_experiment("Advance_Predictive_Maintenance")
+else:
+    print("💻 Menggunakan MLflow Lokal")
+    mlflow.set_tracking_uri("http://127.0.0.1:5002") 
+    mlflow.set_experiment("Skilled_Predictive_Maintenance_Tuning")
 if __name__ == "__main__":
 
     # 2. DATA LOADING & SPLITTING

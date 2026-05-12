@@ -23,52 +23,26 @@ import shap
 class SmartPredictiveMaintenance(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         """Me-load model dan scaler saat Docker API dinyalakan"""
-        import joblib
         self.scaler = joblib.load(context.artifacts["scaler"])
         self.model = joblib.load(context.artifacts["model"])
 
     def predict(self, context, model_input):
-        """Fungsi ini berjalan setiap kali API menerima request data mentah"""
-        import numpy as np
-        import pandas as pd
-        
+        """Fungsi ini berjalan setiap kali API menerima request"""
         df_input = model_input.copy()
-        print(f"DEBUG: Input mentah diterima: \n{df_input.head(1)}")
 
-        # 1. FEATURE ENGINEERING
-        if 'Process temperature [K]' in df_input.columns and 'Air temperature [K]' in df_input.columns:
-            df_input['Temp_Difference'] = df_input['Process temperature [K]'] - df_input['Air temperature [K]']
-        if 'Torque [Nm]' in df_input.columns and 'Rotational speed [rpm]' in df_input.columns:
-            df_input['Power'] = df_input['Torque [Nm]'] * df_input['Rotational speed [rpm]']
-        if 'Tool wear [min]' in df_input.columns and 'Rotational speed [rpm]' in df_input.columns:
-            df_input['Strain'] = df_input['Tool wear [min]'] * df_input['Rotational speed [rpm]']
-
-        # 2. FEATURE SELECTION (Hapus kolom tidak relevan & suhu asli)
-        cols_to_drop = ['Air temperature [K]', 'Process temperature [K]', 'UDI', 'Product ID', 'Failure Type']
-        df_input = df_input.drop(columns=[c for c in cols_to_drop if c in df_input.columns], errors='ignore')
-
-        # 3. ENCODING KATEGORIKAL
-        type_mapping = {'L': 0, 'M': 1, 'H': 2}
-        if 'Type' in df_input.columns:
-            # Gunakan map, dan handle jika input terlanjur float/int
-            df_input['Type'] = df_input['Type'].replace(type_mapping)
-
-        # 4. TRANSFORMASI LOGARITMIK
+        # A. REPLIKASI LANGKAH 5 PREPROCESSING: Transformasi Logaritmik
         skewed_cols = ['Rotational speed [rpm]', 'Tool wear [min]', 'Power', 'Strain']
         for col in skewed_cols:
             if col in df_input.columns:
                 df_input[col] = np.log1p(df_input[col])
 
-        # 5. SUSUN URUTAN KOLOM (Sangat penting agar Scaler tidak salah posisi)
-        expected_cols = ['Type', 'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]', 'Temp_Difference', 'Power', 'Strain']
-        # Pastikan DataFrame hanya memiliki kolom ini dengan urutan yang benar
-        df_input = df_input[expected_cols]
-
-        # 6. SCALING
+        # B. REPLIKASI LANGKAH 7 PREPROCESSING: Scaling dengan RobustScaler
         scaled_input = self.scaler.transform(df_input)
-        # print(f"DEBUG: Data siap masuk model (setelah preprocessing & scaling): \n{scaled_input}")
         
-        # 7. PREDIKSI
+        # C. Prediksi menggunakan Random Forest
+        # Cek nilai setelah scaling (apakah sudah jadi angka kecil?)
+        print(f"DEBUG: Nilai RPM setelah preprocessing: {scaled_input}")
+
         return self.model.predict(scaled_input)
 
 # ==========================================
@@ -226,8 +200,10 @@ if __name__ == "__main__":
 
         # D. Buat DataFrame dummy berisi data mentah untuk mendidik Signature MLflow
         # Agar MLflow tahu bahwa API ini menerima data mentah, bukan data desimal
-        raw_cols = ["Type", "Air temperature [K]", "Process temperature [K]", "Rotational speed [rpm]", "Torque [Nm]", "Tool wear [min]"]
-        X_raw_example = pd.DataFrame([['L', 298.1, 308.6, 1551.0, 42.8, 0.0]], columns=raw_cols)
+        raw_cols = ["Type", "Rotational speed [rpm]", "Torque [Nm]", "Tool wear [min]", "Temp_Difference", "Power", "Strain"]
+        X_raw_example = pd.DataFrame([[1.0, 1500.0, 45.0, 10.0, 10.5, 67500.0, 450.0]], columns=raw_cols)
+        
+        # Infer signature menggunakan data input mentah dan output prediksi dari model
         signature = infer_signature(X_raw_example, best_model.predict(X_test.head(1)))
         
         # E. Simpan Model menggunakan mlflow.pyfunc

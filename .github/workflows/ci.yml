@@ -34,7 +34,7 @@ jobs:
           MLFLOW_TRACKING_URI: https://dagshub.com/oscar-sinaga/Predictive-Maintenance-MLOps.mlflow
         run: |
           cd MLProject
-          mlflow run . --env-manager local
+          mlflow run . --env-manager local -experiment-name="Advance_Predictive_Maintenance"
 
       - name: Get latest MLflow run_id
         id: get_run_id
@@ -67,7 +67,7 @@ jobs:
           mlflow models build-docker \
             -m "runs:/${{ env.RUN_ID }}/random_forest_model" \
             -n "oscarmsinaga/predictive-maintenance-model" \
-            --env-manager local
+            --env-manager local --experiment-name="Advance_Predictive_Maintenance"
             
             
       - name: Log in to Docker Hub

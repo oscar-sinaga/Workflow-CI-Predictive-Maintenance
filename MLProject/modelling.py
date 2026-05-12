@@ -16,6 +16,8 @@ from sklearn.metrics import (accuracy_score, precision_score, recall_score,
 from sklearn.metrics import precision_recall_curve, log_loss
 from mlflow.models.signature import infer_signature 
 import shap 
+from mlflow.models.signature import ModelSignature
+from mlflow.types.schema import Schema, ColSpec
 
 # ==========================================
 # 0. DEFINISI CUSTOM PYFUNC MODEL (RESEPSIONIS PINTAR)
@@ -225,17 +227,34 @@ if __name__ == "__main__":
         }
 
         # D. Buat DataFrame dummy berisi data mentah untuk mendidik Signature MLflow
-        # Agar MLflow tahu bahwa API ini menerima data mentah, bukan data desimal
+        # ==========================================
+        # D. DEFINISIKAN SKEMA SECARA EKSPLISIT (EXPLICIT SIGNATURE)
+        # ==========================================
+        # Kita paksa MLflow agar tahu persis tipe data apa yang boleh masuk
+        input_schema = Schema([
+            ColSpec("string", "Type"),  # <--- SECARA EKSPLISIT KITA MINTA TEKS / HURUF
+            ColSpec("double", "Air temperature [K]"),
+            ColSpec("double", "Process temperature [K]"),
+            ColSpec("double", "Rotational speed [rpm]"),
+            ColSpec("double", "Torque [Nm]"),
+            ColSpec("double", "Tool wear [min]")
+        ])
+        
+        output_schema = Schema([ColSpec("integer")]) # Prediksinya berupa 0 atau 1
+        
+        # Gabungkan menjadi satu Signature mutlak
+        explicit_signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+        
+        # Contoh data mentah (hanya untuk preview di DagsHub UI)
         raw_cols = ["Type", "Air temperature [K]", "Process temperature [K]", "Rotational speed [rpm]", "Torque [Nm]", "Tool wear [min]"]
         X_raw_example = pd.DataFrame([['L', 298.1, 308.6, 1551.0, 42.8, 0.0]], columns=raw_cols)
-        signature = infer_signature(X_raw_example, best_model.predict(X_test.head(1)))
-        
+
         # E. Simpan Model menggunakan mlflow.pyfunc
         mlflow.pyfunc.log_model(
             artifact_path="random_forest_model",
             python_model=SmartPredictiveMaintenance(),
             artifacts=artifacts,
-            signature=signature,           
+            signature=explicit_signature,  # <--- MASUKKAN ATURAN MUTLAK KE SINI          
             input_example=X_raw_example,    
         )
         

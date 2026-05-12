@@ -239,4 +239,4 @@ if __name__ == "__main__":
             input_example=X_raw_example,    
         )
         
-        print("✅ Eksperimen sukses! Custom Model (Scaler + LogTransform + RF) berhasil dikirim ke DagsHub.")
+        print("✅ Eksperimen sukses! Custom Model (Praproses[Scaler + LogTransform] + RF) berhasil dikirim ke DagsHub.")
